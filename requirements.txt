@@ -1,3 +1,6 @@
 waveshare-epaper
 watchdog
 pillow
+gpiozero
+rpi-lgpio
+

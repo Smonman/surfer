@@ -22,24 +22,25 @@ def display_new_image(epd: any, path: pathlib.Path) -> None:
     try:
         epd.init()
         img = Image.open(path)
-        draw_image(img)
+        draw_image(epd, img)
     except Exception as e:
-        LOGGER.error(f"could not display image {path}", e)
+        LOGGER.exception(f"could not display image {path}")
     finally:
         epd.sleep()
 
 
 def draw_image(epd: any, image: Image) -> None:
     LOGGER.debug("drawing image")
-    epd.display(Image)
+    buffer = epd.getbuffer(image)
+    epd.display(buffer)
 
 
 def get_epaper_module(specifier: str) -> any:
     LOGGER.debug(f"trying to get epaper module for {specifier}")
     try:
-        return epaper.epaper("epd7in5").EPD()
+        return epaper.epaper("epd7in5_V2").EPD()
     except Exception as e:
-        LOGGER.error(f"cannot get epaper module for {specifier}", e)
+        LOGGER.exception(f"cannot get epaper module for {specifier}")
         raise ValueError(f"module {specifier} not found", e)
 
 
@@ -50,11 +51,20 @@ def start(epd: any, args: dict) -> None:
         raise NotImplementedError()
 
 
+def quit(epd: any) -> None:
+    try:
+        epd.init()
+        epd.Clear()
+        epd.sleep()
+    except KeyboardInterrupt:
+        epd.epdconfig.module_exit(cleanup=True)
+
+
 def main(args: dict) -> None:
     LOGGER.debug(args)
     epd = None
     try:
-        epd = get_epaper_module("epd7in5")
+        epd = get_epaper_module("epd7in5_V2")
         start(epd, args)
     except KeyboardInterrupt:
         LOGGER.info("interrupted")
@@ -63,7 +73,7 @@ def main(args: dict) -> None:
     finally:
         LOGGER.info("quitting")
         if epd:
-            epd.Clear()
+            quit(epd)
 
 
 if __name__ == "__main__":
