@@ -38,6 +38,7 @@ def draw_image(epd: any, image: Image) -> None:
 def get_epaper_module(specifier: str) -> any:
     LOGGER.debug(f"trying to get epaper module for {specifier}")
     try:
+        # make this a run argument
         return epaper.epaper("epd7in5_V2").EPD()
     except Exception as e:
         LOGGER.exception(f"cannot get epaper module for {specifier}")
