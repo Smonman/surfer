@@ -38,8 +38,7 @@ def draw_image(epd: any, image: Image) -> None:
 def get_epaper_module(specifier: str) -> any:
     LOGGER.debug(f"trying to get epaper module for {specifier}")
     try:
-        # make this a run argument
-        return epaper.epaper("epd7in5_V2").EPD()
+        return epaper.epaper(specifier).EPD()
     except Exception as e:
         LOGGER.exception(f"cannot get epaper module for {specifier}")
         raise ValueError(f"module {specifier} not found", e)
@@ -65,7 +64,7 @@ def main(args: dict) -> None:
     LOGGER.debug(args)
     epd = None
     try:
-        epd = get_epaper_module("epd7in5_V2")
+        epd = get_epaper_module(args.display)
         start(epd, args)
     except KeyboardInterrupt:
         LOGGER.info("interrupted")
@@ -82,6 +81,7 @@ if __name__ == "__main__":
     input_group = parser.add_mutually_exclusive_group()
     input_group.add_argument("image", type=pathlib.Path, nargs="?", help="Image to display")
     input_group.add_argument("-w", "--watch-directory", type=pathlib.Path, help="watch directory and display lates changes")
+    parser.add_argument("-d", "--display", type=str, default="epd7in5_V2", help="waveshare display model specifier")
     parser.add_argument("-v", "--verbose", action="store_true", default=False, help="show more log output")
     parser.add_argument("-e", "--debug", action="store_true", default=False, help="show debug log messages")
     args = parser.parse_args()
