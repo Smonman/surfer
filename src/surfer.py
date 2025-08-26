@@ -2,12 +2,17 @@ import argparse
 import logging
 import logging.config
 import pathlib
+import time
 
 import epaper
 from PIL import Image
+from watchdog.events import FileModifiedEvent, FileSystemEventHandler
+from watchdog.observers import Observer
 
 logging.config.fileConfig("src/logging.conf")
 LOGGER = logging.getLogger()
+
+WATCHDOG_INTERVAL = 5
 
 
 def setup_logger(args: dict) -> None:
@@ -15,6 +20,52 @@ def setup_logger(args: dict) -> None:
         LOGGER.setLevel(logging.INFO)
     if args.debug:
         LOGGER.setLevel(logging.DEBUG)
+
+
+class FileChangeHandler(FileSystemEventHandler):
+    
+    def __init__(self, epd: any) -> None:
+        self.last_modified = time.datetime.now()
+        self.epd = epd
+
+
+    def on_modified(self, event) -> None:
+        if event.is_directory:
+            return
+        if not isinstance(event, FileModifiedEvent):
+            return
+        if time.datetime.now() - self.last_modified < time.timedelta(seconds=WATCHDOG_INTERVAL):
+            return
+        LOGGER.info(f"directory {event.src_path} was modified")
+        self.last_modified = time.datetime.now()
+        display_new_image(self.epd, event.src_path)
+
+
+def get_watchdog_path(path: pathlib.Path) -> pathlib.Path:
+    if path.is_file():
+        LOGGER.warning(f"watchdog path {path} is pointing to a file, using parent directory")
+        return path.parents[0]
+    return path
+
+
+def run_watchdog(observer: Observer) -> None:
+    try:
+        while True:
+            time.sleep(WATCHDOG_INTERVAL)
+    except KeyboardInterrupt:
+        LOGGER.info("interrupted watchdog")
+    finally:
+        LOGGER.info("terminating watchdog observer")
+        observer.stop()
+        observer.join()
+
+
+def start_watchdog(epd: any, path: pathlib.Path) -> None:
+    event_handler = FileChangeHandler(epd)
+    observer = Observer()
+    observer.schedule(event_handler, path=get_watchdog_path(path), recursive=False)
+    observer.start()
+    run_watchdog(observer)
 
 
 def display_new_image(epd: any, path: pathlib.Path) -> None:
@@ -48,7 +99,7 @@ def start(epd: any, args: dict) -> None:
     if args.image:
         display_new_image(epd, args.image)
     elif args.watch_directory:
-        raise NotImplementedError()
+        start_watchdog(epd, args.watch_directory)
 
 
 def quit(epd: any) -> None:
