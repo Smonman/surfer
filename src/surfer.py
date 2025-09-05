@@ -14,6 +14,9 @@ logging.config.fileConfig("src/logging.conf")
 LOGGER = logging.getLogger()
 
 WATCHDOG_INTERVAL = 5
+MAX_PARTIAL_REFRESH = 10
+
+partial_refresh_counter = 0
 
 
 def setup_logger(args: dict) -> None:
@@ -21,6 +24,22 @@ def setup_logger(args: dict) -> None:
         LOGGER.setLevel(logging.INFO)
     if args.debug:
         LOGGER.setLevel(logging.DEBUG)
+
+
+def may_partial_draw() -> bool:
+    return partial_refresh_counter < MAX_PARTIAL_REFRESH
+
+
+def clear_partial_refresh_counter() -> None:
+    LOGGER.debug("clearing partial refresh counter")
+    global partial_refresh_counter
+    partial_refresh_counter = 0
+
+
+def increment_partial_refresh_counter() -> None:
+    LOGGER.debug("incrementing partial refresh counter")
+    global partial_refresh_counter
+    partial_refresh_counter += 1
 
 
 class FileChangeHandler(FileSystemEventHandler):
@@ -39,7 +58,7 @@ class FileChangeHandler(FileSystemEventHandler):
             return
         LOGGER.info(f"directory {event.src_path} was modified")
         self.last_modified = datetime.datetime.now()
-        display_new_image_partial(self.epd, event.src_path)
+        display_new_image(self.epd, event.src_path, True)
 
 
 def get_watchdog_path(path: pathlib.Path) -> pathlib.Path:
@@ -71,7 +90,15 @@ def start_watchdog(epd: any, path: pathlib.Path) -> None:
     run_watchdog(observer)
 
 
-def display_new_image(epd: any, path: pathlib.Path) -> None:
+def display_new_image(epd: any, path: pathlib.Path, try_partial: bool = False) -> None:
+    LOGGER.debug(f"trying to displaying image {path}")
+    if not try_partial or not may_partial_draw():
+        display_image(epd, path)
+    else:
+        display_image_partial(epd, path)
+
+
+def display_image(epd: any, path: pathlib.Path) -> None:
     LOGGER.debug(f"displaying image {path}")
     try:
         epd.init()
@@ -87,9 +114,10 @@ def draw_image(epd: any, image: Image) -> None:
     LOGGER.debug("drawing image")
     buffer = epd.getbuffer(image)
     epd.display(buffer)
+    clear_partial_refresh_counter()
 
 
-def display_new_image_partial(epd: any, path: pathlib.Path) -> None:
+def display_image_partial(epd: any, path: pathlib.Path) -> None:
     LOGGER.debug(f"displaying image partial {path}")
     try:
         epd.init_part()
@@ -105,6 +133,7 @@ def draw_image_partial(epd: any, image: Image) -> None:
     LOGGER.debug("drawing image parial")
     buffer = epd.getbuffer(image)
     epd.display_Partial(buffer, 0, 0, epd.width, epd.height)
+    increment_partial_refresh_counter()
 
 
 def get_epaper_module(specifier: str) -> any:
