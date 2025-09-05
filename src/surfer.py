@@ -3,6 +3,7 @@ import logging
 import logging.config
 import pathlib
 import time
+import datetime
 
 import epaper
 from PIL import Image
@@ -25,7 +26,7 @@ def setup_logger(args: dict) -> None:
 class FileChangeHandler(FileSystemEventHandler):
     
     def __init__(self, epd: any) -> None:
-        self.last_modified = time.datetime.now()
+        self.last_modified = datetime.datetime.now()
         self.epd = epd
 
 
@@ -34,11 +35,11 @@ class FileChangeHandler(FileSystemEventHandler):
             return
         if not isinstance(event, FileModifiedEvent):
             return
-        if time.datetime.now() - self.last_modified < time.timedelta(seconds=WATCHDOG_INTERVAL):
+        if datetime.datetime.now() - self.last_modified < datetime.timedelta(seconds=WATCHDOG_INTERVAL):
             return
         LOGGER.info(f"directory {event.src_path} was modified")
-        self.last_modified = time.datetime.now()
-        display_new_image(self.epd, event.src_path)
+        self.last_modified = datetime.datetime.now()
+        display_new_image_partial(self.epd, event.src_path)
 
 
 def get_watchdog_path(path: pathlib.Path) -> pathlib.Path:
@@ -49,6 +50,7 @@ def get_watchdog_path(path: pathlib.Path) -> pathlib.Path:
 
 
 def run_watchdog(observer: Observer) -> None:
+    LOGGER.debug("watchdog observer is running...")
     try:
         while True:
             time.sleep(WATCHDOG_INTERVAL)
@@ -61,6 +63,7 @@ def run_watchdog(observer: Observer) -> None:
 
 
 def start_watchdog(epd: any, path: pathlib.Path) -> None:
+    LOGGER.debug(f"starting watchdog on path {path}")
     event_handler = FileChangeHandler(epd)
     observer = Observer()
     observer.schedule(event_handler, path=get_watchdog_path(path), recursive=False)
@@ -86,6 +89,24 @@ def draw_image(epd: any, image: Image) -> None:
     epd.display(buffer)
 
 
+def display_new_image_partial(epd: any, path: pathlib.Path) -> None:
+    LOGGER.debug(f"displaying image partial {path}")
+    try:
+        epd.init_part()
+        img = Image.open(path)
+        draw_image_partial(epd, img)
+    except Exception as e:
+        LOGGER.exception(f"could not display image {path}")
+    finally:
+        epd.sleep()
+
+
+def draw_image_partial(epd: any, image: Image) -> None:
+    LOGGER.debug("drawing image parial")
+    buffer = epd.getbuffer(image)
+    epd.display_Partial(buffer, 0, 0, epd.width, epd.height)
+
+
 def get_epaper_module(specifier: str) -> any:
     LOGGER.debug(f"trying to get epaper module for {specifier}")
     try:
@@ -96,6 +117,7 @@ def get_epaper_module(specifier: str) -> any:
 
 
 def start(epd: any, args: dict) -> None:
+    LOGGER.debug(f"start displaying")
     if args.image:
         display_new_image(epd, args.image)
     elif args.watch_directory:
@@ -116,6 +138,7 @@ def main(args: dict) -> None:
     epd = None
     try:
         epd = get_epaper_module(args.display)
+        LOGGER.debug("successfully got epaper module")
         start(epd, args)
     except KeyboardInterrupt:
         LOGGER.info("interrupted")
