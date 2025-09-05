@@ -4,6 +4,7 @@ import logging.config
 import pathlib
 import time
 import datetime
+import signal
 
 import epaper
 from PIL import Image
@@ -17,6 +18,12 @@ WATCHDOG_INTERVAL = 5
 MAX_PARTIAL_REFRESH = 10
 
 partial_refresh_counter = 0
+run = True
+
+
+def sigterm_handler(signum, frame):
+    global run
+    run = False
 
 
 def setup_logger(args: dict) -> None:
@@ -71,7 +78,7 @@ def get_watchdog_path(path: pathlib.Path) -> pathlib.Path:
 def run_watchdog(observer: Observer) -> None:
     LOGGER.debug("watchdog observer is running...")
     try:
-        while True:
+        while run:
             time.sleep(WATCHDOG_INTERVAL)
     except KeyboardInterrupt:
         LOGGER.info("interrupted watchdog")
@@ -189,4 +196,5 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--debug", action="store_true", default=False, help="show debug log messages")
     args = parser.parse_args()
     setup_logger(args)
+    signal.signal(signal.SIGTERM, sigterm_handler)
     main(args)
