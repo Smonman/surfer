@@ -11,7 +11,8 @@ from PIL import Image
 from watchdog.events import FileModifiedEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
-logging.config.fileConfig("src/logging.conf")
+config_path = pathlib.Path(__file__).parent.resolve().joinpath("logging.conf")
+logging.config.fileConfig(config_path)
 LOGGER = logging.getLogger()
 
 WATCHDOG_INTERVAL = 5
