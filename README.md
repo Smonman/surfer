@@ -19,7 +19,7 @@ python surfer.py [-h] [-w WATCH_DIRECTORY] [-d DISPLAY] [-v] [-e] [image]
 As described in the [API reference](), the Waveshare display model specifier has the following format:
 
 ```
-epd<size>[_<version>]
+epd<size>[<version>]
 ```
 where `size` is the size of the display like `7in5`, and `version` is the version of the display, if mulitple exist.
 As of 2025-09-25, these are the available specifier:
